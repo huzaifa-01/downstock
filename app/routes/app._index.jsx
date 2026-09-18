@@ -1,4 +1,5 @@
-import { useLoaderData, useFetcher, useActionData, Form, redirect } from "react-router";
+import { useLoaderData, useFetcher } from "react-router";
+import { useEffect } from "react";
 import { boundary } from "@shopify/shopify-app-react-router/server";
 import { authenticate } from "../shopify.server";
 import { PLAN } from "../plans.js";
@@ -150,14 +151,18 @@ export const action = async ({ request }) => {
       const sub = data.data?.appSubscriptionCreate;
       if (sub?.userErrors?.length) return { error: sub.userErrors[0].message };
       if (!sub?.confirmationUrl) return { error: "Failed to start subscription" };
-      // Real top-level redirect, not a JSON payload — this form submits via
-      // a full document POST (reloadDocument) specifically so this redirect
-      // is followed by the top-level browser, letting Shopify break the
-      // billing confirmation screen out of the embedded iframe correctly.
-      // A fetch/AJAX submission here would surface as a generic 400 instead.
-      throw redirect(sub.confirmationUrl);
+      // Return the URL as JSON rather than a server redirect — Shopify's
+      // billing confirmation page refuses to render inside our iframe
+      // (X-Frame-Options), so the client has to break out via
+      // window.top.location.href instead of the server redirecting the
+      // iframe itself. Matches CODsafe's proven working pattern.
+      return { billingUrl: sub.confirmationUrl };
     } catch (e) {
-      if (e instanceof Response) throw e;
+      if (e instanceof Response) {
+        const loc = e.headers?.get("location");
+        if (loc) return { billingUrl: loc };
+        throw e;
+      }
       return { error: "Billing error: " + e.message };
     }
   }
@@ -250,9 +255,15 @@ export const action = async ({ request }) => {
 export default function Dashboard() {
   const { isActive, inTrial, collections, recentActivity, over50 } = useLoaderData();
   const fetcher = useFetcher();
-  const actionData = useActionData();
-  const errorMessage = actionData?.error || fetcher.data?.error;
 
+  useEffect(() => {
+    if (fetcher.data?.billingUrl) {
+      try { window.top.location.href = fetcher.data.billingUrl; }
+      catch { window.location.href = fetcher.data.billingUrl; }
+    }
+  }, [fetcher.data]);
+
+  const errorMessage = fetcher.data?.error;
   const subscribed = isActive || inTrial;
   const compatible = collections.filter((c) => c.compatible);
   const incompatible = collections.filter((c) => !c.compatible);
@@ -264,7 +275,7 @@ export default function Dashboard() {
           <s-paragraph>
             $1.99/month after the trial — one plan, everything included. No charge until day 15.
           </s-paragraph>
-          <Form method="post" reloadDocument>
+          <fetcher.Form method="post">
             <input type="hidden" name="intent" value="subscribe" />
             <button
               type="submit"
@@ -274,10 +285,11 @@ export default function Dashboard() {
                 border: "none", borderRadius: 8,
                 fontSize: 14, fontWeight: 700, cursor: "pointer",
               }}
+              disabled={fetcher.state !== "idle"}
             >
-              Start free trial
+              {fetcher.state !== "idle" ? "Redirecting…" : "Start free trial"}
             </button>
-          </Form>
+          </fetcher.Form>
         </s-banner>
       )}
 
