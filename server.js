@@ -70,6 +70,15 @@ try {
 
   const server = createServer((req, res) => {
     try {
+      // Passenger/Apache on this host terminates HTTPS and forwards to us
+      // over plain HTTP — without this, @react-router/node's request
+      // builder sees an unencrypted socket and reconstructs request.url as
+      // http://..., which no longer matches the browser's https:// Origin
+      // header. React Router 7.12+'s CSRF guard (throwIfPotentialCSRFAttack)
+      // then rejects every action POST with "origin does not match".
+      if (req.headers["x-forwarded-proto"] === "https" && req.socket) {
+        req.socket.encrypted = true;
+      }
       const url = new URL(req.url, "http://localhost");
       const filePath = join(CLIENT_DIR, url.pathname);
       if (existsSync(filePath) && statSync(filePath).isFile()) {
