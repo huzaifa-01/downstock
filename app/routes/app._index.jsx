@@ -164,6 +164,46 @@ export const action = async ({ request }) => {
     }
   }
 
+  if (intent === "cancel_subscription") {
+    try {
+      const subsResp = await admin.graphql(
+        `query ActiveSubscriptions {
+          currentAppInstallation {
+            activeSubscriptions { id }
+          }
+        }`,
+      );
+      const subsData = await subsResp.json();
+      const activeSubscriptions = subsData.data?.currentAppInstallation?.activeSubscriptions || [];
+
+      for (const sub of activeSubscriptions) {
+        const cancelResp = await admin.graphql(
+          `mutation AppSubscriptionCancel($id: ID!) {
+            appSubscriptionCancel(id: $id) {
+              appSubscription { id status }
+              userErrors { field message }
+            }
+          }`,
+          { variables: { id: sub.id } },
+        );
+        const cancelData = await cancelResp.json();
+        const userErrors = cancelData.data?.appSubscriptionCancel?.userErrors;
+        if (userErrors?.length) return { error: userErrors[0].message };
+      }
+
+      // Disable every collection too — an unsubscribed shop shouldn't keep
+      // getting live reorders (webhooks would otherwise still process them).
+      await prisma.$transaction([
+        prisma.shop.update({ where: { shop }, data: { isActive: false, subscriptionId: null } }),
+        prisma.managedCollection.updateMany({ where: { shop }, data: { enabled: false } }),
+      ]);
+      return { success: true };
+    } catch (e) {
+      if (e instanceof Response) throw e;
+      return { error: "Cancel failed: " + e.message };
+    }
+  }
+
   if (intent === "toggle_collection") {
     const shopifyCollectionId = form.get("collectionId");
     const enable = form.get("enable") === "true";
@@ -365,6 +405,44 @@ export default function Dashboard() {
           </a>
         </div>
       </s-section>
+
+      {subscribed && (
+        <s-section heading="Subscription">
+          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", flexWrap: "wrap", gap: 10 }}>
+            <div>
+              <span style={{
+                display: "inline-block", padding: "3px 10px",
+                background: C.bgSuccess, color: C.textSuccess,
+                borderRadius: 20, fontSize: 12, fontWeight: 600,
+              }}>
+                {inTrial && !isActive ? "Free trial" : "Active"}
+              </span>
+              <span style={{ marginLeft: 10, fontSize: 13, color: C.textSecondary }}>
+                $1.99/month — cancel any time, no long-term commitment.
+              </span>
+            </div>
+            <fetcher.Form method="post" onSubmit={(e) => {
+              if (!confirm("Cancel your DownStock subscription? Your collections will stop being managed.")) {
+                e.preventDefault();
+              }
+            }}>
+              <input type="hidden" name="intent" value="cancel_subscription" />
+              <button
+                type="submit"
+                disabled={fetcher.state !== "idle"}
+                style={{
+                  padding: "8px 16px", background: "transparent",
+                  color: C.textCritical, border: `1px solid ${C.borderCritical}`,
+                  borderRadius: 8, fontSize: 13, cursor: "pointer",
+                  opacity: fetcher.state !== "idle" ? 0.6 : 1,
+                }}
+              >
+                Cancel Subscription
+              </button>
+            </fetcher.Form>
+          </div>
+        </s-section>
+      )}
     </s-page>
   );
 }
