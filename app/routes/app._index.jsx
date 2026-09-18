@@ -1,4 +1,5 @@
-import { useLoaderData, useFetcher, useActionData, redirect } from "react-router";
+import { useLoaderData, useFetcher } from "react-router";
+import { useEffect } from "react";
 import { boundary } from "@shopify/shopify-app-react-router/server";
 import { authenticate } from "../shopify.server";
 import { PLAN } from "../plans.js";
@@ -165,17 +166,13 @@ export const action = async ({ request }) => {
         console.error(`[subscribe] no confirmationUrl in response`);
         return { error: "Failed to start subscription" };
       }
-      console.error(`[subscribe] redirecting to ${sub.confirmationUrl}`);
-      // A real server redirect. This is safe here specifically because the
-      // form submitting to this action uses target="_top" (a native HTML
-      // form attribute, not React Router's fetcher) — the browser handles
-      // the whole request/redirect at the TOP window, outside the iframe
-      // and outside React Router's single-fetch data protocol. Both of
-      // those, independently, break billing here: single-fetch action
-      // POSTs return a 400 from authenticate.admin (known upstream issue,
-      // shopify-app-js#1976), and a same-frame redirect gets refused by
-      // Shopify's billing page's X-Frame-Options.
-      throw redirect(sub.confirmationUrl);
+      console.error(`[subscribe] returning billingUrl to client: ${sub.confirmationUrl}`);
+      // Return the URL as JSON — a native <form target="_top"> here gets
+      // silently swallowed by Shopify admin's iframe sandbox (no top-level
+      // navigation, no error, nothing reaches the server at all). The
+      // supported way to break out is client-side: window.top.location.href
+      // from a normal in-iframe fetch, which is what CODsafe already does.
+      return { billingUrl: sub.confirmationUrl };
     } catch (e) {
       if (e instanceof Response) throw e;
       console.error(`[subscribe] caught error: ${e.message}`);
@@ -269,11 +266,17 @@ export const action = async ({ request }) => {
 };
 
 export default function Dashboard() {
-  const { shop, isActive, inTrial, collections, recentActivity, over50 } = useLoaderData();
+  const { isActive, inTrial, collections, recentActivity, over50 } = useLoaderData();
   const fetcher = useFetcher();
 
-  const actionData = useActionData();
-  const errorMessage = actionData?.error || fetcher.data?.error;
+  useEffect(() => {
+    if (fetcher.data?.billingUrl) {
+      try { window.top.location.href = fetcher.data.billingUrl; }
+      catch { window.location.href = fetcher.data.billingUrl; }
+    }
+  }, [fetcher.data]);
+
+  const errorMessage = fetcher.data?.error;
   const subscribed = isActive || inTrial;
   const compatible = collections.filter((c) => c.compatible);
   const incompatible = collections.filter((c) => !c.compatible);
@@ -285,16 +288,7 @@ export default function Dashboard() {
           <s-paragraph>
             $1.99/month after the trial — one plan, everything included. No charge until day 15.
           </s-paragraph>
-          {/* Native <form>, not React Router's <Form>/fetcher.Form — target="_top"
-              only works as a real browser form submission. This deliberately
-              skips both the SPA router and the iframe: the whole request/
-              redirect happens in the top-level window. */}
-          {/* Explicit action, no trailing slash (React Router only resolves
-              the nested index route's action for exact "/app", not "/app/"
-              — the page's own URL), with ?shop= carried along so
-              authenticate.admin has a shop to work with once this lands as
-              a bare top-level POST outside the embedded iframe/session. */}
-          <form method="post" action={`/app?shop=${shop}`} target="_top">
+          <fetcher.Form method="post">
             <input type="hidden" name="intent" value="subscribe" />
             <button
               type="submit"
@@ -304,10 +298,11 @@ export default function Dashboard() {
                 border: "none", borderRadius: 8,
                 fontSize: 14, fontWeight: 700, cursor: "pointer",
               }}
+              disabled={fetcher.state !== "idle"}
             >
-              Start free trial
+              {fetcher.state !== "idle" ? "Redirecting…" : "Start free trial"}
             </button>
-          </form>
+          </fetcher.Form>
         </s-banner>
       )}
 
