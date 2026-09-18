@@ -271,7 +271,11 @@ export default function Dashboard() {
               only works as a real browser form submission. This deliberately
               skips both the SPA router and the iframe: the whole request/
               redirect happens in the top-level window. */}
-          <form method="post" target="_top">
+          {/* Explicit action="/app" (no trailing slash) — the page's own
+              URL has a trailing slash, and React Router only resolves the
+              nested index route's action for the exact "/app" path; posting
+              to "/app/" hits the parent layout route, which has no action. */}
+          <form method="post" action="/app" target="_top">
             <input type="hidden" name="intent" value="subscribe" />
             <button
               type="submit"
