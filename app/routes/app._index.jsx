@@ -108,11 +108,17 @@ export const loader = async ({ request }) => {
 };
 
 export const action = async ({ request }) => {
+  console.error(`[action] entered, method=${request.method} url=${request.url}`);
   let session, admin;
   try {
     ({ session, admin } = await authenticate.admin(request));
+    console.error(`[action] authenticated, shop=${session?.shop}`);
   } catch (e) {
-    if (e instanceof Response) throw e;
+    if (e instanceof Response) {
+      console.error(`[action] authenticate threw Response status=${e.status} location=${e.headers?.get("location")}`);
+      throw e;
+    }
+    console.error(`[action] authenticate threw non-Response: ${e.message}`);
     return { error: "Auth failed: " + e.message };
   }
   const shop = session.shop;
@@ -120,7 +126,7 @@ export const action = async ({ request }) => {
   const intent = form.get("intent");
 
   if (intent === "subscribe") {
-    console.log(`[subscribe] shop=${shop} starting appSubscriptionCreate`);
+    console.error(`[subscribe] shop=${shop} starting appSubscriptionCreate`);
     try {
       const resp = await admin.graphql(
         `mutation AppSubscriptionCreate($name: String!, $returnUrl: URL!, $lineItems: [AppSubscriptionLineItemInput!]!, $test: Boolean, $trialDays: Int) {
@@ -148,17 +154,17 @@ export const action = async ({ request }) => {
         },
       );
       const data = await resp.json();
-      console.log(`[subscribe] graphql response: ${JSON.stringify(data)}`);
+      console.error(`[subscribe] graphql response: ${JSON.stringify(data)}`);
       const sub = data.data?.appSubscriptionCreate;
       if (sub?.userErrors?.length) {
-        console.log(`[subscribe] userErrors: ${JSON.stringify(sub.userErrors)}`);
+        console.error(`[subscribe] userErrors: ${JSON.stringify(sub.userErrors)}`);
         return { error: sub.userErrors[0].message };
       }
       if (!sub?.confirmationUrl) {
-        console.log(`[subscribe] no confirmationUrl in response`);
+        console.error(`[subscribe] no confirmationUrl in response`);
         return { error: "Failed to start subscription" };
       }
-      console.log(`[subscribe] redirecting to ${sub.confirmationUrl}`);
+      console.error(`[subscribe] redirecting to ${sub.confirmationUrl}`);
       // A real server redirect. This is safe here specifically because the
       // form submitting to this action uses target="_top" (a native HTML
       // form attribute, not React Router's fetcher) — the browser handles
@@ -171,7 +177,7 @@ export const action = async ({ request }) => {
       throw redirect(sub.confirmationUrl);
     } catch (e) {
       if (e instanceof Response) throw e;
-      console.log(`[subscribe] caught error: ${e.message}`);
+      console.error(`[subscribe] caught error: ${e.message}`);
       return { error: "Billing error: " + e.message };
     }
   }
