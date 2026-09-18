@@ -2,7 +2,7 @@ var _a;
 import { jsx, jsxs } from "react/jsx-runtime";
 import { PassThrough } from "stream";
 import { renderToPipeableStream } from "react-dom/server";
-import { ServerRouter, UNSAFE_withComponentProps, useLoaderData, Meta, Links, Outlet, ScrollRestoration, Scripts, redirect, UNSAFE_withErrorBoundaryProps, useRouteError, useFetcher } from "react-router";
+import { ServerRouter, UNSAFE_withComponentProps, useLoaderData, Meta, Links, Outlet, ScrollRestoration, Scripts, redirect, UNSAFE_withErrorBoundaryProps, useRouteError, useFetcher, useActionData, Form } from "react-router";
 import { createReadableStreamFromReadable } from "@react-router/node";
 import { isbot } from "isbot";
 import "@shopify/shopify-app-react-router/adapters/node";
@@ -10,7 +10,6 @@ import { shopifyApp, AppDistribution, ApiVersion, boundary } from "@shopify/shop
 import { PrismaSessionStorage } from "@shopify/shopify-app-session-storage-prisma";
 import { PrismaClient } from "@prisma/client";
 import { AppProvider } from "@shopify/shopify-app-react-router/react";
-import { useEffect } from "react";
 if (process.env.NODE_ENV !== "production") {
   if (!global.prismaGlobal) {
     global.prismaGlobal = new PrismaClient();
@@ -893,7 +892,7 @@ const loader = async ({
 const action = async ({
   request
 }) => {
-  var _a2, _b, _c;
+  var _a2, _b;
   let session, admin;
   try {
     ({
@@ -944,17 +943,9 @@ const action = async ({
       if (!(sub == null ? void 0 : sub.confirmationUrl)) return {
         error: "Failed to start subscription"
       };
-      return {
-        billingUrl: sub.confirmationUrl
-      };
+      throw redirect(sub.confirmationUrl);
     } catch (e) {
-      if (e instanceof Response) {
-        const loc = (_c = e.headers) == null ? void 0 : _c.get("location");
-        if (loc) return {
-          billingUrl: loc
-        };
-        throw e;
-      }
+      if (e instanceof Response) throw e;
       return {
         error: "Billing error: " + e.message
       };
@@ -1099,16 +1090,8 @@ const app__index = UNSAFE_withComponentProps(function Dashboard() {
     over50
   } = useLoaderData();
   const fetcher = useFetcher();
-  useEffect(() => {
-    var _a3;
-    if ((_a3 = fetcher.data) == null ? void 0 : _a3.billingUrl) {
-      try {
-        window.top.location.href = fetcher.data.billingUrl;
-      } catch {
-        window.location.href = fetcher.data.billingUrl;
-      }
-    }
-  }, [fetcher.data]);
+  const actionData = useActionData();
+  const errorMessage = (actionData == null ? void 0 : actionData.error) || ((_a2 = fetcher.data) == null ? void 0 : _a2.error);
   const subscribed = isActive || inTrial;
   const compatible = collections.filter((c) => c.compatible);
   const incompatible = collections.filter((c) => !c.compatible);
@@ -1119,8 +1102,9 @@ const app__index = UNSAFE_withComponentProps(function Dashboard() {
       title: "Start your 14-day free trial",
       children: [/* @__PURE__ */ jsx("s-paragraph", {
         children: "$1.99/month after the trial — one plan, everything included. No charge until day 15."
-      }), /* @__PURE__ */ jsxs(fetcher.Form, {
+      }), /* @__PURE__ */ jsxs(Form, {
         method: "post",
+        reloadDocument: true,
         children: [/* @__PURE__ */ jsx("input", {
           type: "hidden",
           name: "intent",
@@ -1138,15 +1122,14 @@ const app__index = UNSAFE_withComponentProps(function Dashboard() {
             fontWeight: 700,
             cursor: "pointer"
           },
-          disabled: fetcher.state !== "idle",
-          children: fetcher.state !== "idle" ? "Redirecting…" : "Start free trial"
+          children: "Start free trial"
         })]
       })]
-    }), ((_a2 = fetcher.data) == null ? void 0 : _a2.error) && /* @__PURE__ */ jsx("s-banner", {
+    }), errorMessage && /* @__PURE__ */ jsx("s-banner", {
       tone: "critical",
       title: "Something went wrong",
       children: /* @__PURE__ */ jsx("s-paragraph", {
-        children: fetcher.data.error
+        children: errorMessage
       })
     }), over50 && /* @__PURE__ */ jsx("s-section", {
       heading: "Built for growing catalogs",
@@ -1325,7 +1308,7 @@ const route12 = /* @__PURE__ */ Object.freeze(/* @__PURE__ */ Object.definePrope
   headers,
   loader
 }, Symbol.toStringTag, { value: "Module" }));
-const serverManifest = { "entry": { "module": "/assets/entry.client-DDs3dqtT.js", "imports": ["/assets/jsx-runtime-CfA4YLwA.js", "/assets/chunk-OB3PAWPO-BJ6zMILr.js"], "css": [] }, "routes": { "root": { "id": "root", "parentId": void 0, "path": "", "index": void 0, "caseSensitive": void 0, "hasAction": false, "hasLoader": true, "hasClientAction": false, "hasClientLoader": false, "hasClientMiddleware": false, "hasDefaultExport": true, "hasErrorBoundary": false, "module": "/assets/root-BfRdC3ng.js", "imports": ["/assets/jsx-runtime-CfA4YLwA.js", "/assets/chunk-OB3PAWPO-BJ6zMILr.js", "/assets/colors-BBDuMQrQ.js"], "css": [], "clientActionModule": void 0, "clientLoaderModule": void 0, "clientMiddlewareModule": void 0, "hydrateFallbackModule": void 0 }, "routes/webhooks.collections.update": { "id": "routes/webhooks.collections.update", "parentId": "root", "path": "webhooks/collections/update", "index": void 0, "caseSensitive": void 0, "hasAction": true, "hasLoader": false, "hasClientAction": false, "hasClientLoader": false, "hasClientMiddleware": false, "hasDefaultExport": false, "hasErrorBoundary": false, "module": "/assets/webhooks.collections.update-l0sNRNKZ.js", "imports": [], "css": [], "clientActionModule": void 0, "clientLoaderModule": void 0, "clientMiddlewareModule": void 0, "hydrateFallbackModule": void 0 }, "routes/webhooks.inventory.update": { "id": "routes/webhooks.inventory.update", "parentId": "root", "path": "webhooks/inventory/update", "index": void 0, "caseSensitive": void 0, "hasAction": true, "hasLoader": false, "hasClientAction": false, "hasClientLoader": false, "hasClientMiddleware": false, "hasDefaultExport": false, "hasErrorBoundary": false, "module": "/assets/webhooks.inventory.update-l0sNRNKZ.js", "imports": [], "css": [], "clientActionModule": void 0, "clientLoaderModule": void 0, "clientMiddlewareModule": void 0, "hydrateFallbackModule": void 0 }, "routes/webhooks.app.uninstalled": { "id": "routes/webhooks.app.uninstalled", "parentId": "root", "path": "webhooks/app/uninstalled", "index": void 0, "caseSensitive": void 0, "hasAction": true, "hasLoader": false, "hasClientAction": false, "hasClientLoader": false, "hasClientMiddleware": false, "hasDefaultExport": false, "hasErrorBoundary": false, "module": "/assets/webhooks.app.uninstalled-l0sNRNKZ.js", "imports": [], "css": [], "clientActionModule": void 0, "clientLoaderModule": void 0, "clientMiddlewareModule": void 0, "hydrateFallbackModule": void 0 }, "routes/webhooks.products.delete": { "id": "routes/webhooks.products.delete", "parentId": "root", "path": "webhooks/products/delete", "index": void 0, "caseSensitive": void 0, "hasAction": true, "hasLoader": false, "hasClientAction": false, "hasClientLoader": false, "hasClientMiddleware": false, "hasDefaultExport": false, "hasErrorBoundary": false, "module": "/assets/webhooks.products.delete-l0sNRNKZ.js", "imports": [], "css": [], "clientActionModule": void 0, "clientLoaderModule": void 0, "clientMiddlewareModule": void 0, "hydrateFallbackModule": void 0 }, "routes/webhooks.products.update": { "id": "routes/webhooks.products.update", "parentId": "root", "path": "webhooks/products/update", "index": void 0, "caseSensitive": void 0, "hasAction": true, "hasLoader": false, "hasClientAction": false, "hasClientLoader": false, "hasClientMiddleware": false, "hasDefaultExport": false, "hasErrorBoundary": false, "module": "/assets/webhooks.products.update-l0sNRNKZ.js", "imports": [], "css": [], "clientActionModule": void 0, "clientLoaderModule": void 0, "clientMiddlewareModule": void 0, "hydrateFallbackModule": void 0 }, "routes/webhooks.compliance": { "id": "routes/webhooks.compliance", "parentId": "root", "path": "webhooks/compliance", "index": void 0, "caseSensitive": void 0, "hasAction": true, "hasLoader": false, "hasClientAction": false, "hasClientLoader": false, "hasClientMiddleware": false, "hasDefaultExport": false, "hasErrorBoundary": false, "module": "/assets/webhooks.compliance-l0sNRNKZ.js", "imports": [], "css": [], "clientActionModule": void 0, "clientLoaderModule": void 0, "clientMiddlewareModule": void 0, "hydrateFallbackModule": void 0 }, "routes/billing.callback": { "id": "routes/billing.callback", "parentId": "root", "path": "billing/callback", "index": void 0, "caseSensitive": void 0, "hasAction": false, "hasLoader": true, "hasClientAction": false, "hasClientLoader": false, "hasClientMiddleware": false, "hasDefaultExport": false, "hasErrorBoundary": false, "module": "/assets/billing.callback-l0sNRNKZ.js", "imports": [], "css": [], "clientActionModule": void 0, "clientLoaderModule": void 0, "clientMiddlewareModule": void 0, "hydrateFallbackModule": void 0 }, "routes/auth.$": { "id": "routes/auth.$", "parentId": "root", "path": "auth/*", "index": void 0, "caseSensitive": void 0, "hasAction": false, "hasLoader": true, "hasClientAction": false, "hasClientLoader": false, "hasClientMiddleware": false, "hasDefaultExport": false, "hasErrorBoundary": false, "module": "/assets/auth._-l0sNRNKZ.js", "imports": [], "css": [], "clientActionModule": void 0, "clientLoaderModule": void 0, "clientMiddlewareModule": void 0, "hydrateFallbackModule": void 0 }, "routes/_index": { "id": "routes/_index", "parentId": "root", "path": void 0, "index": true, "caseSensitive": void 0, "hasAction": false, "hasLoader": true, "hasClientAction": false, "hasClientLoader": false, "hasClientMiddleware": false, "hasDefaultExport": true, "hasErrorBoundary": false, "module": "/assets/_index-_rVwXf5L.js", "imports": ["/assets/chunk-OB3PAWPO-BJ6zMILr.js"], "css": [], "clientActionModule": void 0, "clientLoaderModule": void 0, "clientMiddlewareModule": void 0, "hydrateFallbackModule": void 0 }, "routes/app": { "id": "routes/app", "parentId": "root", "path": "app", "index": void 0, "caseSensitive": void 0, "hasAction": false, "hasLoader": true, "hasClientAction": false, "hasClientLoader": false, "hasClientMiddleware": false, "hasDefaultExport": true, "hasErrorBoundary": true, "module": "/assets/app-DJiRV-rQ.js", "imports": ["/assets/chunk-OB3PAWPO-BJ6zMILr.js", "/assets/jsx-runtime-CfA4YLwA.js"], "css": [], "clientActionModule": void 0, "clientLoaderModule": void 0, "clientMiddlewareModule": void 0, "hydrateFallbackModule": void 0 }, "routes/app.activity": { "id": "routes/app.activity", "parentId": "routes/app", "path": "activity", "index": void 0, "caseSensitive": void 0, "hasAction": false, "hasLoader": true, "hasClientAction": false, "hasClientLoader": false, "hasClientMiddleware": false, "hasDefaultExport": true, "hasErrorBoundary": false, "module": "/assets/app.activity-B01e9WyY.js", "imports": ["/assets/chunk-OB3PAWPO-BJ6zMILr.js", "/assets/jsx-runtime-CfA4YLwA.js", "/assets/colors-BBDuMQrQ.js"], "css": [], "clientActionModule": void 0, "clientLoaderModule": void 0, "clientMiddlewareModule": void 0, "hydrateFallbackModule": void 0 }, "routes/app._index": { "id": "routes/app._index", "parentId": "routes/app", "path": void 0, "index": true, "caseSensitive": void 0, "hasAction": true, "hasLoader": true, "hasClientAction": false, "hasClientLoader": false, "hasClientMiddleware": false, "hasDefaultExport": true, "hasErrorBoundary": false, "module": "/assets/app._index-BUJmRe5h.js", "imports": ["/assets/chunk-OB3PAWPO-BJ6zMILr.js", "/assets/jsx-runtime-CfA4YLwA.js", "/assets/colors-BBDuMQrQ.js"], "css": [], "clientActionModule": void 0, "clientLoaderModule": void 0, "clientMiddlewareModule": void 0, "hydrateFallbackModule": void 0 } }, "url": "/assets/manifest-d8d04640.js", "version": "d8d04640", "sri": void 0 };
+const serverManifest = { "entry": { "module": "/assets/entry.client-CWwP_kD1.js", "imports": ["/assets/jsx-runtime-Em9FpP7K.js", "/assets/chunk-OB3PAWPO-D7Ipuz9n.js"], "css": [] }, "routes": { "root": { "id": "root", "parentId": void 0, "path": "", "index": void 0, "caseSensitive": void 0, "hasAction": false, "hasLoader": true, "hasClientAction": false, "hasClientLoader": false, "hasClientMiddleware": false, "hasDefaultExport": true, "hasErrorBoundary": false, "module": "/assets/root-CyYwIwLh.js", "imports": ["/assets/jsx-runtime-Em9FpP7K.js", "/assets/chunk-OB3PAWPO-D7Ipuz9n.js", "/assets/colors-BBDuMQrQ.js"], "css": [], "clientActionModule": void 0, "clientLoaderModule": void 0, "clientMiddlewareModule": void 0, "hydrateFallbackModule": void 0 }, "routes/webhooks.collections.update": { "id": "routes/webhooks.collections.update", "parentId": "root", "path": "webhooks/collections/update", "index": void 0, "caseSensitive": void 0, "hasAction": true, "hasLoader": false, "hasClientAction": false, "hasClientLoader": false, "hasClientMiddleware": false, "hasDefaultExport": false, "hasErrorBoundary": false, "module": "/assets/webhooks.collections.update-l0sNRNKZ.js", "imports": [], "css": [], "clientActionModule": void 0, "clientLoaderModule": void 0, "clientMiddlewareModule": void 0, "hydrateFallbackModule": void 0 }, "routes/webhooks.inventory.update": { "id": "routes/webhooks.inventory.update", "parentId": "root", "path": "webhooks/inventory/update", "index": void 0, "caseSensitive": void 0, "hasAction": true, "hasLoader": false, "hasClientAction": false, "hasClientLoader": false, "hasClientMiddleware": false, "hasDefaultExport": false, "hasErrorBoundary": false, "module": "/assets/webhooks.inventory.update-l0sNRNKZ.js", "imports": [], "css": [], "clientActionModule": void 0, "clientLoaderModule": void 0, "clientMiddlewareModule": void 0, "hydrateFallbackModule": void 0 }, "routes/webhooks.app.uninstalled": { "id": "routes/webhooks.app.uninstalled", "parentId": "root", "path": "webhooks/app/uninstalled", "index": void 0, "caseSensitive": void 0, "hasAction": true, "hasLoader": false, "hasClientAction": false, "hasClientLoader": false, "hasClientMiddleware": false, "hasDefaultExport": false, "hasErrorBoundary": false, "module": "/assets/webhooks.app.uninstalled-l0sNRNKZ.js", "imports": [], "css": [], "clientActionModule": void 0, "clientLoaderModule": void 0, "clientMiddlewareModule": void 0, "hydrateFallbackModule": void 0 }, "routes/webhooks.products.delete": { "id": "routes/webhooks.products.delete", "parentId": "root", "path": "webhooks/products/delete", "index": void 0, "caseSensitive": void 0, "hasAction": true, "hasLoader": false, "hasClientAction": false, "hasClientLoader": false, "hasClientMiddleware": false, "hasDefaultExport": false, "hasErrorBoundary": false, "module": "/assets/webhooks.products.delete-l0sNRNKZ.js", "imports": [], "css": [], "clientActionModule": void 0, "clientLoaderModule": void 0, "clientMiddlewareModule": void 0, "hydrateFallbackModule": void 0 }, "routes/webhooks.products.update": { "id": "routes/webhooks.products.update", "parentId": "root", "path": "webhooks/products/update", "index": void 0, "caseSensitive": void 0, "hasAction": true, "hasLoader": false, "hasClientAction": false, "hasClientLoader": false, "hasClientMiddleware": false, "hasDefaultExport": false, "hasErrorBoundary": false, "module": "/assets/webhooks.products.update-l0sNRNKZ.js", "imports": [], "css": [], "clientActionModule": void 0, "clientLoaderModule": void 0, "clientMiddlewareModule": void 0, "hydrateFallbackModule": void 0 }, "routes/webhooks.compliance": { "id": "routes/webhooks.compliance", "parentId": "root", "path": "webhooks/compliance", "index": void 0, "caseSensitive": void 0, "hasAction": true, "hasLoader": false, "hasClientAction": false, "hasClientLoader": false, "hasClientMiddleware": false, "hasDefaultExport": false, "hasErrorBoundary": false, "module": "/assets/webhooks.compliance-l0sNRNKZ.js", "imports": [], "css": [], "clientActionModule": void 0, "clientLoaderModule": void 0, "clientMiddlewareModule": void 0, "hydrateFallbackModule": void 0 }, "routes/billing.callback": { "id": "routes/billing.callback", "parentId": "root", "path": "billing/callback", "index": void 0, "caseSensitive": void 0, "hasAction": false, "hasLoader": true, "hasClientAction": false, "hasClientLoader": false, "hasClientMiddleware": false, "hasDefaultExport": false, "hasErrorBoundary": false, "module": "/assets/billing.callback-l0sNRNKZ.js", "imports": [], "css": [], "clientActionModule": void 0, "clientLoaderModule": void 0, "clientMiddlewareModule": void 0, "hydrateFallbackModule": void 0 }, "routes/auth.$": { "id": "routes/auth.$", "parentId": "root", "path": "auth/*", "index": void 0, "caseSensitive": void 0, "hasAction": false, "hasLoader": true, "hasClientAction": false, "hasClientLoader": false, "hasClientMiddleware": false, "hasDefaultExport": false, "hasErrorBoundary": false, "module": "/assets/auth._-l0sNRNKZ.js", "imports": [], "css": [], "clientActionModule": void 0, "clientLoaderModule": void 0, "clientMiddlewareModule": void 0, "hydrateFallbackModule": void 0 }, "routes/_index": { "id": "routes/_index", "parentId": "root", "path": void 0, "index": true, "caseSensitive": void 0, "hasAction": false, "hasLoader": true, "hasClientAction": false, "hasClientLoader": false, "hasClientMiddleware": false, "hasDefaultExport": true, "hasErrorBoundary": false, "module": "/assets/_index-DXvWPKTj.js", "imports": ["/assets/chunk-OB3PAWPO-D7Ipuz9n.js"], "css": [], "clientActionModule": void 0, "clientLoaderModule": void 0, "clientMiddlewareModule": void 0, "hydrateFallbackModule": void 0 }, "routes/app": { "id": "routes/app", "parentId": "root", "path": "app", "index": void 0, "caseSensitive": void 0, "hasAction": false, "hasLoader": true, "hasClientAction": false, "hasClientLoader": false, "hasClientMiddleware": false, "hasDefaultExport": true, "hasErrorBoundary": true, "module": "/assets/app-aaePTaoF.js", "imports": ["/assets/chunk-OB3PAWPO-D7Ipuz9n.js", "/assets/jsx-runtime-Em9FpP7K.js"], "css": [], "clientActionModule": void 0, "clientLoaderModule": void 0, "clientMiddlewareModule": void 0, "hydrateFallbackModule": void 0 }, "routes/app.activity": { "id": "routes/app.activity", "parentId": "routes/app", "path": "activity", "index": void 0, "caseSensitive": void 0, "hasAction": false, "hasLoader": true, "hasClientAction": false, "hasClientLoader": false, "hasClientMiddleware": false, "hasDefaultExport": true, "hasErrorBoundary": false, "module": "/assets/app.activity-DxEyML9o.js", "imports": ["/assets/chunk-OB3PAWPO-D7Ipuz9n.js", "/assets/jsx-runtime-Em9FpP7K.js", "/assets/colors-BBDuMQrQ.js"], "css": [], "clientActionModule": void 0, "clientLoaderModule": void 0, "clientMiddlewareModule": void 0, "hydrateFallbackModule": void 0 }, "routes/app._index": { "id": "routes/app._index", "parentId": "routes/app", "path": void 0, "index": true, "caseSensitive": void 0, "hasAction": true, "hasLoader": true, "hasClientAction": false, "hasClientLoader": false, "hasClientMiddleware": false, "hasDefaultExport": true, "hasErrorBoundary": false, "module": "/assets/app._index-DkNWQU_P.js", "imports": ["/assets/chunk-OB3PAWPO-D7Ipuz9n.js", "/assets/jsx-runtime-Em9FpP7K.js", "/assets/colors-BBDuMQrQ.js"], "css": [], "clientActionModule": void 0, "clientLoaderModule": void 0, "clientMiddlewareModule": void 0, "hydrateFallbackModule": void 0 } }, "url": "/assets/manifest-503663bc.js", "version": "503663bc", "sri": void 0 };
 const assetsBuildDirectory = "build\\client";
 const basename = "/";
 const future = { "unstable_optimizeDeps": false, "v8_passThroughRequests": false, "v8_trailingSlashAwareDataRequests": false, "unstable_previewServerPrerendering": false, "v8_middleware": false, "v8_splitRouteModules": false, "v8_viteEnvironmentApi": false };
