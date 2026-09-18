@@ -909,6 +909,7 @@ const action = async ({
   const form = await request.formData();
   const intent = form.get("intent");
   if (intent === "subscribe") {
+    console.log(`[subscribe] shop=${shop} starting appSubscriptionCreate`);
     try {
       const resp = await admin.graphql(`mutation AppSubscriptionCreate($name: String!, $returnUrl: URL!, $lineItems: [AppSubscriptionLineItemInput!]!, $test: Boolean, $trialDays: Int) {
           appSubscriptionCreate(name: $name, returnUrl: $returnUrl, lineItems: $lineItems, test: $test, trialDays: $trialDays) {
@@ -936,16 +937,25 @@ const action = async ({
         }
       });
       const data = await resp.json();
+      console.log(`[subscribe] graphql response: ${JSON.stringify(data)}`);
       const sub = (_a2 = data.data) == null ? void 0 : _a2.appSubscriptionCreate;
-      if ((_b = sub == null ? void 0 : sub.userErrors) == null ? void 0 : _b.length) return {
-        error: sub.userErrors[0].message
-      };
-      if (!(sub == null ? void 0 : sub.confirmationUrl)) return {
-        error: "Failed to start subscription"
-      };
+      if ((_b = sub == null ? void 0 : sub.userErrors) == null ? void 0 : _b.length) {
+        console.log(`[subscribe] userErrors: ${JSON.stringify(sub.userErrors)}`);
+        return {
+          error: sub.userErrors[0].message
+        };
+      }
+      if (!(sub == null ? void 0 : sub.confirmationUrl)) {
+        console.log(`[subscribe] no confirmationUrl in response`);
+        return {
+          error: "Failed to start subscription"
+        };
+      }
+      console.log(`[subscribe] redirecting to ${sub.confirmationUrl}`);
       throw redirect(sub.confirmationUrl);
     } catch (e) {
       if (e instanceof Response) throw e;
+      console.log(`[subscribe] caught error: ${e.message}`);
       return {
         error: "Billing error: " + e.message
       };

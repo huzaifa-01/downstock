@@ -120,6 +120,7 @@ export const action = async ({ request }) => {
   const intent = form.get("intent");
 
   if (intent === "subscribe") {
+    console.log(`[subscribe] shop=${shop} starting appSubscriptionCreate`);
     try {
       const resp = await admin.graphql(
         `mutation AppSubscriptionCreate($name: String!, $returnUrl: URL!, $lineItems: [AppSubscriptionLineItemInput!]!, $test: Boolean, $trialDays: Int) {
@@ -147,9 +148,17 @@ export const action = async ({ request }) => {
         },
       );
       const data = await resp.json();
+      console.log(`[subscribe] graphql response: ${JSON.stringify(data)}`);
       const sub = data.data?.appSubscriptionCreate;
-      if (sub?.userErrors?.length) return { error: sub.userErrors[0].message };
-      if (!sub?.confirmationUrl) return { error: "Failed to start subscription" };
+      if (sub?.userErrors?.length) {
+        console.log(`[subscribe] userErrors: ${JSON.stringify(sub.userErrors)}`);
+        return { error: sub.userErrors[0].message };
+      }
+      if (!sub?.confirmationUrl) {
+        console.log(`[subscribe] no confirmationUrl in response`);
+        return { error: "Failed to start subscription" };
+      }
+      console.log(`[subscribe] redirecting to ${sub.confirmationUrl}`);
       // A real server redirect. This is safe here specifically because the
       // form submitting to this action uses target="_top" (a native HTML
       // form attribute, not React Router's fetcher) — the browser handles
@@ -162,6 +171,7 @@ export const action = async ({ request }) => {
       throw redirect(sub.confirmationUrl);
     } catch (e) {
       if (e instanceof Response) throw e;
+      console.log(`[subscribe] caught error: ${e.message}`);
       return { error: "Billing error: " + e.message };
     }
   }
