@@ -99,6 +99,7 @@ export const loader = async ({ request }) => {
   const inTrial = shopRow.trialEndsAt && shopRow.trialEndsAt > now;
 
   return {
+    shop,
     isActive: shopRow.isActive,
     inTrial,
     collections,
@@ -268,7 +269,7 @@ export const action = async ({ request }) => {
 };
 
 export default function Dashboard() {
-  const { isActive, inTrial, collections, recentActivity, over50 } = useLoaderData();
+  const { shop, isActive, inTrial, collections, recentActivity, over50 } = useLoaderData();
   const fetcher = useFetcher();
 
   const actionData = useActionData();
@@ -288,11 +289,12 @@ export default function Dashboard() {
               only works as a real browser form submission. This deliberately
               skips both the SPA router and the iframe: the whole request/
               redirect happens in the top-level window. */}
-          {/* Explicit action="/app" (no trailing slash) — the page's own
-              URL has a trailing slash, and React Router only resolves the
-              nested index route's action for the exact "/app" path; posting
-              to "/app/" hits the parent layout route, which has no action. */}
-          <form method="post" action="/app" target="_top">
+          {/* Explicit action, no trailing slash (React Router only resolves
+              the nested index route's action for exact "/app", not "/app/"
+              — the page's own URL), with ?shop= carried along so
+              authenticate.admin has a shop to work with once this lands as
+              a bare top-level POST outside the embedded iframe/session. */}
+          <form method="post" action={`/app?shop=${shop}`} target="_top">
             <input type="hidden" name="intent" value="subscribe" />
             <button
               type="submit"
