@@ -1,4 +1,4 @@
-import { useLoaderData, useFetcher, redirect } from "react-router";
+import { useLoaderData, useFetcher, useActionData, redirect } from "react-router";
 import { boundary } from "@shopify/shopify-app-react-router/server";
 import { authenticate } from "../shopify.server";
 import { PLAN } from "../plans.js";
@@ -255,7 +255,8 @@ export default function Dashboard() {
   const { isActive, inTrial, collections, recentActivity, over50 } = useLoaderData();
   const fetcher = useFetcher();
 
-  const errorMessage = fetcher.data?.error;
+  const actionData = useActionData();
+  const errorMessage = actionData?.error || fetcher.data?.error;
   const subscribed = isActive || inTrial;
   const compatible = collections.filter((c) => c.compatible);
   const incompatible = collections.filter((c) => !c.compatible);
