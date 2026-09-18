@@ -290,7 +290,8 @@ export const action = async ({ request }) => {
 };
 
 export default function Dashboard() {
-  const { isActive, inTrial, collections, recentActivity, over50 } = useLoaderData();
+  const { shop, isActive, inTrial, collections, recentActivity, over50 } = useLoaderData();
+  const shopName = shop.replace(".myshopify.com", "");
   const fetcher = useFetcher();
 
   useEffect(() => {
@@ -346,15 +347,42 @@ export default function Dashboard() {
 
       <s-section heading={`Manual-sort collections (${compatible.length})`}>
         {compatible.length === 0 ? (
-          <p style={{ color: C.textSecondary }}>
-            No collections are set to Manual sorting yet. Switch a collection's sort order to
-            "Manual" in Shopify admin to manage it here.
-          </p>
+          <div>
+            <p style={{ color: C.textSecondary, marginBottom: 12 }}>
+              DownStock only manages collections set to <strong>Manual</strong> sorting — that's a
+              Shopify requirement, not a DownStock limit, and it means we'll never silently change
+              how a collection is sorted for you.
+            </p>
+            <ol style={{ margin: "0 0 14px", paddingLeft: 18, color: C.text, fontSize: 13.5, lineHeight: 1.8 }}>
+              <li>Open a collection in Shopify admin</li>
+              <li>Set its <strong>Sort</strong> option to <strong>"Manual"</strong> and save</li>
+              <li>Come back here and refresh — it'll show up below with an <strong>Enable</strong> button</li>
+            </ol>
+            <a
+              href={`https://admin.shopify.com/store/${shopName}/collections`}
+              target="_blank"
+              rel="noreferrer"
+              style={{
+                display: "inline-block", padding: "8px 16px",
+                background: C.btnBg, color: C.btnText,
+                borderRadius: 8, fontSize: 13, fontWeight: 600, textDecoration: "none",
+              }}
+            >
+              Open Collections in Shopify admin →
+            </a>
+          </div>
         ) : (
-          <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
-            {compatible.map((c) => (
-              <CollectionRow key={c.id} collection={c} subscribed={subscribed} fetcher={fetcher} />
-            ))}
+          <div>
+            <p style={{ color: C.textSecondary, fontSize: 13, marginBottom: 12 }}>
+              Click <strong>Enable</strong> on a collection to scan it now and keep it sorted
+              automatically from then on — available products first, sold-out ones pushed to the
+              bottom, both groups keeping their existing order.
+            </p>
+            <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
+              {compatible.map((c) => (
+                <CollectionRow key={c.id} collection={c} subscribed={subscribed} fetcher={fetcher} />
+              ))}
+            </div>
           </div>
         )}
       </s-section>
