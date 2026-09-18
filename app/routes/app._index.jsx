@@ -1,5 +1,4 @@
-import { useLoaderData, useFetcher } from "react-router";
-import { useEffect } from "react";
+import { useLoaderData, useFetcher, redirect } from "react-router";
 import { boundary } from "@shopify/shopify-app-react-router/server";
 import { authenticate } from "../shopify.server";
 import { PLAN } from "../plans.js";
@@ -151,18 +150,18 @@ export const action = async ({ request }) => {
       const sub = data.data?.appSubscriptionCreate;
       if (sub?.userErrors?.length) return { error: sub.userErrors[0].message };
       if (!sub?.confirmationUrl) return { error: "Failed to start subscription" };
-      // Return the URL as JSON rather than a server redirect — Shopify's
-      // billing confirmation page refuses to render inside our iframe
-      // (X-Frame-Options), so the client has to break out via
-      // window.top.location.href instead of the server redirecting the
-      // iframe itself. Matches CODsafe's proven working pattern.
-      return { billingUrl: sub.confirmationUrl };
+      // A real server redirect. This is safe here specifically because the
+      // form submitting to this action uses target="_top" (a native HTML
+      // form attribute, not React Router's fetcher) — the browser handles
+      // the whole request/redirect at the TOP window, outside the iframe
+      // and outside React Router's single-fetch data protocol. Both of
+      // those, independently, break billing here: single-fetch action
+      // POSTs return a 400 from authenticate.admin (known upstream issue,
+      // shopify-app-js#1976), and a same-frame redirect gets refused by
+      // Shopify's billing page's X-Frame-Options.
+      throw redirect(sub.confirmationUrl);
     } catch (e) {
-      if (e instanceof Response) {
-        const loc = e.headers?.get("location");
-        if (loc) return { billingUrl: loc };
-        throw e;
-      }
+      if (e instanceof Response) throw e;
       return { error: "Billing error: " + e.message };
     }
   }
@@ -256,13 +255,6 @@ export default function Dashboard() {
   const { isActive, inTrial, collections, recentActivity, over50 } = useLoaderData();
   const fetcher = useFetcher();
 
-  useEffect(() => {
-    if (fetcher.data?.billingUrl) {
-      try { window.top.location.href = fetcher.data.billingUrl; }
-      catch { window.location.href = fetcher.data.billingUrl; }
-    }
-  }, [fetcher.data]);
-
   const errorMessage = fetcher.data?.error;
   const subscribed = isActive || inTrial;
   const compatible = collections.filter((c) => c.compatible);
@@ -275,7 +267,11 @@ export default function Dashboard() {
           <s-paragraph>
             $1.99/month after the trial — one plan, everything included. No charge until day 15.
           </s-paragraph>
-          <fetcher.Form method="post">
+          {/* Native <form>, not React Router's <Form>/fetcher.Form — target="_top"
+              only works as a real browser form submission. This deliberately
+              skips both the SPA router and the iframe: the whole request/
+              redirect happens in the top-level window. */}
+          <form method="post" target="_top">
             <input type="hidden" name="intent" value="subscribe" />
             <button
               type="submit"
@@ -285,11 +281,10 @@ export default function Dashboard() {
                 border: "none", borderRadius: 8,
                 fontSize: 14, fontWeight: 700, cursor: "pointer",
               }}
-              disabled={fetcher.state !== "idle"}
             >
-              {fetcher.state !== "idle" ? "Redirecting…" : "Start free trial"}
+              Start free trial
             </button>
-          </fetcher.Form>
+          </form>
         </s-banner>
       )}
 
