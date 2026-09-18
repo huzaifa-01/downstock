@@ -1,0 +1,130 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
+}
+
+model Session {
+  id                  String    @id
+  shop                String
+  state               String
+  isOnline            Boolean   @default(false)
+  scope               String?
+  expires             DateTime?
+  accessToken         String
+  userId              BigInt?
+  firstName           String?
+  lastName            String?
+  email               String?
+  accountOwner        Boolean   @default(false)
+  locale              String?
+  collaborator        Boolean?  @default(false)
+  emailVerified       Boolean?  @default(false)
+  refreshToken        String?
+  refreshTokenExpires DateTime?
+}
+
+// One row per installed shop — tracks subscription/trial state.
+// DownStock has a single paid plan, so this is intentionally simple:
+// no plan key, just "do they have active billing access right now".
+model Shop {
+  id             String    @id @default(cuid())
+  shop           String    @unique
+  isActive       Boolean   @default(false) // true once trial or paid charge is active
+  subscriptionId String?
+  trialEndsAt    DateTime?
+  installedAt    DateTime  @default(now())
+  updatedAt      DateTime  @updatedAt
+}
+
+// A collection the merchant has seen in the compatibility scan.
+// enabled=true means DownStock actively manages this collection's order.
+model ManagedCollection {
+  id                  String    @id @default(cuid())
+  shop                String
+  shopifyCollectionId String
+  title               String
+  sortOrder           String // last known Shopify CollectionSortOrder (e.g. MANUAL, BEST_SELLING)
+  enabled             Boolean   @default(false)
+  lastSyncedAt        DateTime?
+  createdAt           DateTime  @default(now())
+  updatedAt           DateTime  @updatedAt
+
+  @@unique([shop, shopifyCollectionId])
+  @@index([shop, enabled])
+}
+
+// Last known sellability per product, so webhooks can diff
+// "was AVAILABLE, now SOLD_OUT" vs "was already SOLD_OUT" and skip no-op reorders.
+model ProductAvailability {
+  id              String   @id @default(cuid())
+  shop            String
+  shopifyProductId String
+  isSoldOut       Boolean  @default(false)
+  lastCheckedAt   DateTime @default(now())
+
+  @@unique([shop, shopifyProductId])
+}
+
+// One active record per (collection, product) that DownStock has moved down —
+// carries what's needed to restore it close to where it was.
+model ProductPosition {
+  id                     String    @id @default(cuid())
+  shop                   String
+  shopifyCollectionId    String
+  shopifyProductId       String
+  originalPosition       Int
+  previousAnchorProductId String?
+  nextAnchorProductId    String?
+  isMovedDown            Boolean   @default(true)
+  movedAt                DateTime  @default(now())
+  restoredAt             DateTime?
+
+  @@unique([shop, shopifyCollectionId, shopifyProductId])
+  @@index([shop, shopifyProductId])
+}
+
+// Durable job queue, polled by a setInterval loop in server.js (no separate
+// worker process / Redis — matches how CODsafe runs on shared hosting).
+model Job {
+  id          String    @id @default(cuid())
+  shop        String
+  dedupeKey   String?   @unique
+  type        String // "PRODUCT_AVAILABILITY_CHANGED" | "COLLECTION_SYNC"
+  payload     String // JSON.stringify'd
+  status      String    @default("pending") // pending | processing | succeeded | retry | failed | cancelled
+  attempts    Int       @default(0)
+  availableAt DateTime  @default(now())
+  lockedAt    DateTime?
+  processedAt DateTime?
+  lastError   String?
+  createdAt   DateTime  @default(now())
+
+  @@index([status, availableAt])
+  @@index([shop])
+}
+
+// Dedupe table so the same Shopify webhook delivery never processes twice.
+model WebhookReceipt {
+  id         String   @id @default(cuid())
+  shop       String
+  webhookId  String   @unique
+  topic      String
+  receivedAt DateTime @default(now())
+}
+
+// Merchant-visible "what did DownStock do" feed.
+model ActivityLog {
+  id                  String   @id @default(cuid())
+  shop                String
+  shopifyCollectionId String
+  shopifyProductId    String
+  productTitle        String?
+  type                String // "MOVED_DOWN" | "RESTORED"
+  createdAt           DateTime @default(now())
+
+  @@index([shop, createdAt])
+}

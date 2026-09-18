@@ -1,0 +1,40 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <title>DownStock — Privacy Policy</title>
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <style>
+    body { font-family: 'Hanken Grotesk', system-ui, sans-serif; max-width: 720px; margin: 40px auto; padding: 0 20px; line-height: 1.6; color: #202223; }
+    h1 { font-family: 'Bricolage Grotesque', Georgia, serif; }
+    h2 { margin-top: 2em; }
+  </style>
+</head>
+<body>
+  <h1>DownStock — Privacy Policy</h1>
+  <p>Last updated: <!-- UPDATE BEFORE SUBMISSION --></p>
+
+  <h2>What DownStock accesses</h2>
+  <p>DownStock reads your store's products, collections, and inventory levels, and reorders products
+     within collections you enable. It does not read or store customer data (names, emails, phone
+     numbers, addresses, or orders) — its data model is entirely product/collection scoped.</p>
+
+  <h2>What we store</h2>
+  <ul>
+    <li>Your shop domain and Shopify access token, to authenticate API requests</li>
+    <li>Which collections you've enabled, and their compatibility status</li>
+    <li>Product sellability state (available / sold out), so we can detect changes</li>
+    <li>A record of products DownStock has moved, so it can restore them accurately</li>
+    <li>An activity log of moves and restores, shown in your DownStock dashboard</li>
+  </ul>
+
+  <h2>Data retention and deletion</h2>
+  <p>If you uninstall DownStock, we stop processing your store immediately and delete operational
+     data. Shopify's mandatory compliance webhooks (customer data request, customer redact, shop
+     redact) are fully supported; since we never store customer data, the customer-related requests
+     require no action. Full shop data is permanently deleted upon receiving the shop redact webhook.</p>
+
+  <h2>Contact</h2>
+  <p>Questions about this policy: <!-- SUPPORT EMAIL --></p>
+</body>
+</html>
