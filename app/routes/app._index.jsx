@@ -1,4 +1,4 @@
-import { useLoaderData, useFetcher } from "react-router";
+import { useLoaderData, useFetcher, Link } from "react-router";
 import { useEffect, useState } from "react";
 import { boundary } from "@shopify/shopify-app-react-router/server";
 import { authenticate } from "../shopify.server";
@@ -400,9 +400,9 @@ export default function Dashboard() {
           </div>
         )}
         <div style={{ marginTop: 10 }}>
-          <a href="/app/activity" style={{ color: C.textInteractive, fontSize: 14, textDecoration: "none" }}>
+          <Link to="/app/activity" style={{ color: C.textInteractive, fontSize: 14, textDecoration: "none" }}>
             View full activity log →
-          </a>
+          </Link>
         </div>
       </s-section>
 
