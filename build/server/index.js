@@ -242,7 +242,12 @@ async function fetchCollectionAvailability(admin, shopifyCollectionId) {
           sortOrder
           products(first: 250, after: $cursor) {
             pageInfo { hasNextPage endCursor }
-            edges { node { id availableForSale } }
+            edges {
+              node {
+                id
+                variants(first: 100) { nodes { availableForSale } }
+              }
+            }
           }
         }
       }`,
@@ -253,7 +258,8 @@ async function fetchCollectionAvailability(admin, shopifyCollectionId) {
     sortOrder = data.collection.sortOrder;
     for (const { node } of products.edges) {
       ids.push(node.id);
-      if (!node.availableForSale) soldOut.add(node.id);
+      const available = node.variants.nodes.some((v) => v.availableForSale);
+      if (!available) soldOut.add(node.id);
     }
     if (!products.pageInfo.hasNextPage) return { ids, soldOut, sortOrder };
     cursor = products.pageInfo.endCursor;

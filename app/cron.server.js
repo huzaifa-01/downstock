@@ -39,14 +39,26 @@ export async function getAdminForShop(shop) {
 }
 
 async function fetchProductAvailability(admin, shopifyProductId) {
+  // Product has no availableForSale field — only ProductVariant does. A
+  // product is sellable if ANY variant is (see isProductSoldOut).
   const data = await gqlData(
     admin,
     `query ProductAvailability($id: ID!) {
-      product(id: $id) { id availableForSale title }
+      product(id: $id) {
+        id
+        title
+        variants(first: 100) { nodes { availableForSale } }
+      }
     }`,
     { id: shopifyProductId },
   );
-  return data.product;
+  const product = data.product;
+  if (!product) return null;
+  return {
+    id: product.id,
+    title: product.title,
+    availableForSale: product.variants.nodes.some((v) => v.availableForSale),
+  };
 }
 
 export async function fetchCollectionProductIds(admin, shopifyCollectionId) {
@@ -104,6 +116,9 @@ export async function reorderCollection(admin, shopifyCollectionId, moves) {
  * requesting availableForSale alongside the id.
  */
 export async function fetchCollectionAvailability(admin, shopifyCollectionId) {
+  // Product has no availableForSale field — only ProductVariant does, so
+  // each product's own sellability is derived here (sold out only when
+  // every variant is unavailable), not read directly off the product.
   const soldOut = new Set();
   const ids = [];
   let cursor = null;
@@ -116,7 +131,12 @@ export async function fetchCollectionAvailability(admin, shopifyCollectionId) {
           sortOrder
           products(first: 250, after: $cursor) {
             pageInfo { hasNextPage endCursor }
-            edges { node { id availableForSale } }
+            edges {
+              node {
+                id
+                variants(first: 100) { nodes { availableForSale } }
+              }
+            }
           }
         }
       }`,
@@ -127,7 +147,8 @@ export async function fetchCollectionAvailability(admin, shopifyCollectionId) {
     sortOrder = data.collection.sortOrder;
     for (const { node } of products.edges) {
       ids.push(node.id);
-      if (!node.availableForSale) soldOut.add(node.id);
+      const available = node.variants.nodes.some((v) => v.availableForSale);
+      if (!available) soldOut.add(node.id);
     }
     if (!products.pageInfo.hasNextPage) return { ids, soldOut, sortOrder };
     cursor = products.pageInfo.endCursor;

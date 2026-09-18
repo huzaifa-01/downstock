@@ -2,15 +2,17 @@
 // first, sold-out last, both groups internally stable" order, and turn that
 // into the minimal set of moves collectionReorderProducts needs.
 //
-// Availability uses Shopify's own `availableForSale` field (on Product and
-// on ProductVariant), which already accounts for multi-variant products,
-// "continue selling when out of stock", and inventory tracking being
-// disabled — we don't reimplement that logic by hand. Verify this field's
-// exact semantics against the pinned 2026-07 schema during Stage 2 (noted
-// as a TODO, not re-derived from memory here).
+// Availability uses Shopify's own `availableForSale` field on
+// ProductVariant (Product itself has no such field — verified against the
+// 2026-07 schema), which already accounts for "continue selling when out
+// of stock" and inventory tracking being disabled — we don't reimplement
+// that logic by hand. A product is sold out only when every variant is
+// unavailable; callers (cron.server.js) derive that boolean from the
+// variants connection before calling this.
 
 export function isProductSoldOut(product) {
-  // product: { availableForSale: boolean } from the Admin GraphQL API
+  // product: { availableForSale: boolean } — already derived as
+  // "some variant is available for sale" by the caller.
   return product.availableForSale === false;
 }
 
