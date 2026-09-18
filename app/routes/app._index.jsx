@@ -110,17 +110,11 @@ export const loader = async ({ request }) => {
 };
 
 export const action = async ({ request }) => {
-  console.error(`[action] entered, method=${request.method} url=${request.url}`);
   let session, admin;
   try {
     ({ session, admin } = await authenticate.admin(request));
-    console.error(`[action] authenticated, shop=${session?.shop}`);
   } catch (e) {
-    if (e instanceof Response) {
-      console.error(`[action] authenticate threw Response status=${e.status} location=${e.headers?.get("location")}`);
-      throw e;
-    }
-    console.error(`[action] authenticate threw non-Response: ${e.message}`);
+    if (e instanceof Response) throw e;
     return { error: "Auth failed: " + e.message };
   }
   const shop = session.shop;
@@ -128,7 +122,6 @@ export const action = async ({ request }) => {
   const intent = form.get("intent");
 
   if (intent === "subscribe") {
-    console.error(`[subscribe] shop=${shop} starting appSubscriptionCreate`);
     try {
       const resp = await admin.graphql(
         `mutation AppSubscriptionCreate($name: String!, $returnUrl: URL!, $lineItems: [AppSubscriptionLineItemInput!]!, $test: Boolean, $trialDays: Int) {
@@ -156,17 +149,9 @@ export const action = async ({ request }) => {
         },
       );
       const data = await resp.json();
-      console.error(`[subscribe] graphql response: ${JSON.stringify(data)}`);
       const sub = data.data?.appSubscriptionCreate;
-      if (sub?.userErrors?.length) {
-        console.error(`[subscribe] userErrors: ${JSON.stringify(sub.userErrors)}`);
-        return { error: sub.userErrors[0].message };
-      }
-      if (!sub?.confirmationUrl) {
-        console.error(`[subscribe] no confirmationUrl in response`);
-        return { error: "Failed to start subscription" };
-      }
-      console.error(`[subscribe] returning billingUrl to client: ${sub.confirmationUrl}`);
+      if (sub?.userErrors?.length) return { error: sub.userErrors[0].message };
+      if (!sub?.confirmationUrl) return { error: "Failed to start subscription" };
       // Return the URL as JSON — a native <form target="_top"> here gets
       // silently swallowed by Shopify admin's iframe sandbox (no top-level
       // navigation, no error, nothing reaches the server at all). The
@@ -175,7 +160,6 @@ export const action = async ({ request }) => {
       return { billingUrl: sub.confirmationUrl };
     } catch (e) {
       if (e instanceof Response) throw e;
-      console.error(`[subscribe] caught error: ${e.message}`);
       return { error: "Billing error: " + e.message };
     }
   }

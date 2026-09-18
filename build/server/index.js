@@ -894,21 +894,15 @@ const loader = async ({
 const action = async ({
   request
 }) => {
-  var _a2, _b, _c;
-  console.error(`[action] entered, method=${request.method} url=${request.url}`);
+  var _a2, _b;
   let session, admin;
   try {
     ({
       session,
       admin
     } = await authenticate.admin(request));
-    console.error(`[action] authenticated, shop=${session == null ? void 0 : session.shop}`);
   } catch (e) {
-    if (e instanceof Response) {
-      console.error(`[action] authenticate threw Response status=${e.status} location=${(_a2 = e.headers) == null ? void 0 : _a2.get("location")}`);
-      throw e;
-    }
-    console.error(`[action] authenticate threw non-Response: ${e.message}`);
+    if (e instanceof Response) throw e;
     return {
       error: "Auth failed: " + e.message
     };
@@ -917,7 +911,6 @@ const action = async ({
   const form = await request.formData();
   const intent = form.get("intent");
   if (intent === "subscribe") {
-    console.error(`[subscribe] shop=${shop} starting appSubscriptionCreate`);
     try {
       const resp = await admin.graphql(`mutation AppSubscriptionCreate($name: String!, $returnUrl: URL!, $lineItems: [AppSubscriptionLineItemInput!]!, $test: Boolean, $trialDays: Int) {
           appSubscriptionCreate(name: $name, returnUrl: $returnUrl, lineItems: $lineItems, test: $test, trialDays: $trialDays) {
@@ -945,27 +938,18 @@ const action = async ({
         }
       });
       const data = await resp.json();
-      console.error(`[subscribe] graphql response: ${JSON.stringify(data)}`);
-      const sub = (_b = data.data) == null ? void 0 : _b.appSubscriptionCreate;
-      if ((_c = sub == null ? void 0 : sub.userErrors) == null ? void 0 : _c.length) {
-        console.error(`[subscribe] userErrors: ${JSON.stringify(sub.userErrors)}`);
-        return {
-          error: sub.userErrors[0].message
-        };
-      }
-      if (!(sub == null ? void 0 : sub.confirmationUrl)) {
-        console.error(`[subscribe] no confirmationUrl in response`);
-        return {
-          error: "Failed to start subscription"
-        };
-      }
-      console.error(`[subscribe] returning billingUrl to client: ${sub.confirmationUrl}`);
+      const sub = (_a2 = data.data) == null ? void 0 : _a2.appSubscriptionCreate;
+      if ((_b = sub == null ? void 0 : sub.userErrors) == null ? void 0 : _b.length) return {
+        error: sub.userErrors[0].message
+      };
+      if (!(sub == null ? void 0 : sub.confirmationUrl)) return {
+        error: "Failed to start subscription"
+      };
       return {
         billingUrl: sub.confirmationUrl
       };
     } catch (e) {
       if (e instanceof Response) throw e;
-      console.error(`[subscribe] caught error: ${e.message}`);
       return {
         error: "Billing error: " + e.message
       };
