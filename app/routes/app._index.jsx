@@ -1,5 +1,5 @@
 import { useLoaderData, useFetcher } from "react-router";
-import { useEffect } from "react";
+import { useEffect, useState } from "react";
 import { boundary } from "@shopify/shopify-app-react-router/server";
 import { authenticate } from "../shopify.server";
 import { PLAN } from "../plans.js";
@@ -421,25 +421,7 @@ export default function Dashboard() {
                 $1.99/month — cancel any time, no long-term commitment.
               </span>
             </div>
-            <fetcher.Form method="post" onSubmit={(e) => {
-              if (!confirm("Cancel your DownStock subscription? Your collections will stop being managed.")) {
-                e.preventDefault();
-              }
-            }}>
-              <input type="hidden" name="intent" value="cancel_subscription" />
-              <button
-                type="submit"
-                disabled={fetcher.state !== "idle"}
-                style={{
-                  padding: "8px 16px", background: "transparent",
-                  color: C.textCritical, border: `1px solid ${C.borderCritical}`,
-                  borderRadius: 8, fontSize: 13, cursor: "pointer",
-                  opacity: fetcher.state !== "idle" ? 0.6 : 1,
-                }}
-              >
-                Cancel Subscription
-              </button>
-            </fetcher.Form>
+            <CancelSubscriptionControl fetcher={fetcher} />
           </div>
         </s-section>
       )}
@@ -479,6 +461,64 @@ function CollectionRow({ collection, subscribed, fetcher }) {
           {busy ? "Working…" : collection.enabled ? "Disable" : "Enable"}
         </button>
       </fetcher.Form>
+    </div>
+  );
+}
+
+// Inline two-step confirm instead of window.confirm() — a native browser
+// dialog inside Shopify's embedded iframe isn't reliable (can be blocked by
+// the iframe sandbox on some setups) and doesn't match Shopify's own UI.
+function CancelSubscriptionControl({ fetcher }) {
+  const [confirming, setConfirming] = useState(false);
+  const busy = fetcher.state !== "idle";
+
+  if (!confirming) {
+    return (
+      <button
+        type="button"
+        onClick={() => setConfirming(true)}
+        style={{
+          padding: "8px 16px", background: "transparent",
+          color: C.textCritical, border: `1px solid ${C.borderCritical}`,
+          borderRadius: 8, fontSize: 13, cursor: "pointer",
+        }}
+      >
+        Cancel Subscription
+      </button>
+    );
+  }
+
+  return (
+    <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+      <span style={{ fontSize: 13, color: C.textCritical, fontWeight: 600 }}>
+        Cancel and stop managing collections?
+      </span>
+      <fetcher.Form method="post" onSubmit={() => setConfirming(false)}>
+        <input type="hidden" name="intent" value="cancel_subscription" />
+        <button
+          type="submit"
+          disabled={busy}
+          style={{
+            padding: "8px 16px", background: C.textCritical, color: "#fff",
+            border: "none", borderRadius: 8, fontSize: 13, fontWeight: 600,
+            cursor: "pointer", opacity: busy ? 0.6 : 1,
+          }}
+        >
+          {busy ? "Cancelling…" : "Yes, cancel"}
+        </button>
+      </fetcher.Form>
+      <button
+        type="button"
+        onClick={() => setConfirming(false)}
+        disabled={busy}
+        style={{
+          padding: "8px 16px", background: "transparent",
+          color: C.textSecondary, border: `1px solid ${C.border}`,
+          borderRadius: 8, fontSize: 13, cursor: "pointer",
+        }}
+      >
+        Never mind
+      </button>
     </div>
   );
 }
