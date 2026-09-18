@@ -7,13 +7,41 @@ import {
   resolveRestoreIndex,
 } from "./sorting.server.js";
 
+const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
+
 // Thin adapter so both the background poller's plain-fetch client and the
 // real Shopify SDK's `admin` (from authenticate.admin(request)) can be used
 // interchangeably by the functions below — both expose
 // `.graphql(query, { variables }) -> Promise<Response>`.
-export async function gqlData(admin, query, variables) {
+//
+// Retries on rate-limiting so a single throttled call doesn't burn one of
+// the job queue's limited attempts (or fail an interactive request like the
+// initial scan outright) — large stores can hit Shopify's GraphQL cost
+// limit during a big collection read/reorder, and this is meant to absorb
+// that transparently rather than surfacing it as a user-facing error.
+export async function gqlData(admin, query, variables, attempt = 1) {
+  const MAX_ATTEMPTS = 5;
   const resp = await admin.graphql(query, { variables });
+
+  if (resp.status === 429) {
+    if (attempt >= MAX_ATTEMPTS) throw new Error("Shopify API rate limit exceeded after retries");
+    const retryAfterSec = Number(resp.headers?.get?.("Retry-After")) || 2 ** attempt;
+    await sleep(retryAfterSec * 1000);
+    return gqlData(admin, query, variables, attempt + 1);
+  }
+
   const json = await resp.json();
+  const throttled = json.errors?.some((e) => e.extensions?.code === "THROTTLED");
+  if (throttled) {
+    if (attempt >= MAX_ATTEMPTS) throw new Error("Shopify GraphQL throttled after retries");
+    const throttleStatus = json.extensions?.cost?.throttleStatus;
+    const waitMs = throttleStatus
+      ? Math.max(500, Math.ceil(((json.extensions.cost.requestedQueryCost || 50) - throttleStatus.currentlyAvailable) / throttleStatus.restoreRate) * 1000)
+      : 500 * 2 ** attempt;
+    await sleep(waitMs);
+    return gqlData(admin, query, variables, attempt + 1);
+  }
+
   if (json.errors) throw new Error(JSON.stringify(json.errors));
   return json.data;
 }

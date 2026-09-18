@@ -203,9 +203,29 @@ function computeReorderMoves(currentOrderIds, desiredOrderIds) {
   });
   return moves;
 }
-async function gqlData(admin, query, variables) {
+const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
+async function gqlData(admin, query, variables, attempt = 1) {
+  var _a2, _b, _c, _d, _e;
+  const MAX_ATTEMPTS = 5;
   const resp = await admin.graphql(query, { variables });
+  if (resp.status === 429) {
+    if (attempt >= MAX_ATTEMPTS) throw new Error("Shopify API rate limit exceeded after retries");
+    const retryAfterSec = Number((_b = (_a2 = resp.headers) == null ? void 0 : _a2.get) == null ? void 0 : _b.call(_a2, "Retry-After")) || 2 ** attempt;
+    await sleep(retryAfterSec * 1e3);
+    return gqlData(admin, query, variables, attempt + 1);
+  }
   const json = await resp.json();
+  const throttled = (_c = json.errors) == null ? void 0 : _c.some((e) => {
+    var _a3;
+    return ((_a3 = e.extensions) == null ? void 0 : _a3.code) === "THROTTLED";
+  });
+  if (throttled) {
+    if (attempt >= MAX_ATTEMPTS) throw new Error("Shopify GraphQL throttled after retries");
+    const throttleStatus = (_e = (_d = json.extensions) == null ? void 0 : _d.cost) == null ? void 0 : _e.throttleStatus;
+    const waitMs = throttleStatus ? Math.max(500, Math.ceil(((json.extensions.cost.requestedQueryCost || 50) - throttleStatus.currentlyAvailable) / throttleStatus.restoreRate) * 1e3) : 500 * 2 ** attempt;
+    await sleep(waitMs);
+    return gqlData(admin, query, variables, attempt + 1);
+  }
   if (json.errors) throw new Error(JSON.stringify(json.errors));
   return json.data;
 }
