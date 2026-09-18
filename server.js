@@ -41,9 +41,16 @@ const MIME = {
   ".woff": "font/woff", ".woff2": "font/woff2", ".webp": "image/webp",
 };
 
-// This host has no Terminal/SSH access, so migrations can't be run by hand —
-// apply any pending Prisma migrations on every boot instead. Idempotent: a
-// no-op when the schema is already up to date, so restarts stay safe.
+// This host has no Terminal/SSH access, so `prisma generate` and migrations
+// can't be run by hand — do both on every boot instead. Both are idempotent
+// (generate just rewrites the client, migrate deploy no-ops when already
+// up to date), so this stays safe across restarts.
+try {
+  execSync("npx prisma generate", { cwd: __dirname, stdio: "pipe" });
+  log("Prisma client generated.");
+} catch (e) {
+  log("[prisma] generate failed: " + (e.stderr?.toString() || e.message));
+}
 try {
   execSync("npx prisma migrate deploy", { cwd: __dirname, stdio: "pipe" });
   log("Prisma migrations applied (or already up to date).");
